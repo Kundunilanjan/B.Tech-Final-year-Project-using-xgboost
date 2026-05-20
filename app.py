@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import joblib
-import plotly.graph_objects as go
+import plotly.express as px
 
 # ==========================================
 # PAGE CONFIG
@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # ==========================================
-# LOAD MODEL
+# LOAD MODEL AND ENCODERS
 # ==========================================
 
 model = joblib.load("xgboost_model.pkl")
@@ -138,7 +138,7 @@ strain_gauge = st.sidebar.slider(
 )
 
 # ==========================================
-# ENCODE VALUES
+# ENCODE CATEGORICAL VALUES
 # ==========================================
 
 soil_type_encoded = label_encoders[
@@ -154,26 +154,41 @@ support_system_encoded = label_encoders[
 ].transform([support_system])[0]
 
 # ==========================================
-# CREATE DATAFRAME
+# CREATE INPUT DATAFRAME
 # ==========================================
 
 input_data = pd.DataFrame({
 
     'Soil_Type': [soil_type_encoded],
+
     'Soil_Moisture_%': [soil_moisture],
+
     'Shear_Strength_kPa': [shear_strength],
+
     'Bearing_Capacity_kPa': [bearing_capacity],
+
     'Excavation_Depth_m': [excavation_depth],
+
     'Retaining_Wall_Type': [retaining_wall_encoded],
+
     'Support_System': [support_system_encoded],
+
     'Deformation_mm': [deformation],
+
     'Rainfall_mm_day': [rainfall],
+
     'Temperature_C': [temperature],
+
     'Groundwater_Level_m': [groundwater],
+
     'Seismic_Activity': [seismic_activity],
+
     'Ground_Settlement_mm': [ground_settlement],
+
     'Wall_Displacement_mm': [wall_displacement],
+
     'Pore_Water_Pressure_kPa': [pore_water],
+
     'Strain_Gauge': [strain_gauge]
 
 })
@@ -183,6 +198,7 @@ input_data = pd.DataFrame({
 # ==========================================
 
 st.subheader("Current Input Values")
+
 st.dataframe(input_data)
 
 # ==========================================
@@ -194,24 +210,12 @@ if st.button("Predict Risk Level"):
     try:
 
         # ==========================================
-        # PREDICTION
+        # MODEL PREDICTION
         # ==========================================
 
-        prediction = model.predict(input_data)
+        prediction = model.predict(input_data)[0]
 
-        prediction = int(prediction[0])
-
-        # ==========================================
-        # RISK LABELS
-        # ==========================================
-
-        risk_labels = {
-            0: "LOW RISK",
-            1: "MEDIUM RISK",
-            2: "HIGH RISK"
-        }
-
-        result = risk_labels.get(prediction, "UNKNOWN")
+        prediction = int(prediction)
 
         # ==========================================
         # DISPLAY RESULT
@@ -220,45 +224,62 @@ if st.button("Predict Risk Level"):
         st.subheader("Prediction Result")
 
         if prediction == 0:
-            st.success(result)
+
+            st.success("🟢 LOW RISK")
+
+            st.markdown("""
+            ### Construction Status
+            Safe for construction.
+            """)
 
         elif prediction == 1:
-            st.warning(result)
+
+            st.warning("🟡 MEDIUM RISK")
+
+            st.markdown("""
+            ### Construction Status
+            Moderate precautions required.
+            """)
 
         else:
-            st.error(result)
+
+            st.error("🔴 HIGH RISK")
+
+            st.markdown("""
+            ### Construction Status
+            Unsafe soil conditions detected.
+            """)
 
         # ==========================================
-        # PROBABILITY GRAPH
+        # PROBABILITY CHART
         # ==========================================
 
         try:
 
-            probs = model.predict_proba(input_data)[0]
+            probabilities = model.predict_proba(input_data)[0]
 
-            fig = go.Figure(
-                data=[
-                    go.Bar(
-                        x=["Low", "Medium", "High"],
-                        y=probs
-                    )
-                ]
-            )
+            prob_df = pd.DataFrame({
+                "Risk Level": ["Low", "Medium", "High"],
+                "Probability": probabilities
+            })
 
-            fig.update_layout(
-                title="Prediction Probability",
-                xaxis_title="Risk Level",
-                yaxis_title="Probability"
+            fig = px.bar(
+                prob_df,
+                x="Risk Level",
+                y="Probability",
+                title="Prediction Probability"
             )
 
             st.plotly_chart(fig, use_container_width=True)
 
         except:
+
             st.info("Probability chart unavailable")
 
     except Exception as e:
 
         st.error("Prediction Failed")
+
         st.write(e)
 
 # ==========================================
