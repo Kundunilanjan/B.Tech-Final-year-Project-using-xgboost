@@ -1,11 +1,12 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import joblib
 import plotly.express as px
 
-# ==========================================
+# =====================================================
 # PAGE CONFIG
-# ==========================================
+# =====================================================
 
 st.set_page_config(
     page_title="Soil Safety Prediction",
@@ -13,23 +14,23 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==========================================
-# LOAD MODEL AND ENCODERS
-# ==========================================
+# =====================================================
+# LOAD MODEL
+# =====================================================
 
 model = joblib.load("xgboost_model.pkl")
 label_encoders = joblib.load("label_encoders.pkl")
 
-# ==========================================
+# =====================================================
 # TITLE
-# ==========================================
+# =====================================================
 
 st.title("🏗️ Soil Safety Prediction System")
 st.markdown("## XGBoost Based Construction Risk Prediction")
 
-# ==========================================
+# =====================================================
 # SIDEBAR INPUTS
-# ==========================================
+# =====================================================
 
 st.sidebar.header("Input Parameters")
 
@@ -137,9 +138,9 @@ strain_gauge = st.sidebar.slider(
     40.0
 )
 
-# ==========================================
+# =====================================================
 # ENCODE CATEGORICAL VALUES
-# ==========================================
+# =====================================================
 
 soil_type_encoded = label_encoders[
     'Soil_Type'
@@ -153,106 +154,98 @@ support_system_encoded = label_encoders[
     'Support_System'
 ].transform([support_system])[0]
 
-# ==========================================
+# =====================================================
 # CREATE INPUT DATAFRAME
-# ==========================================
+# =====================================================
 
 input_data = pd.DataFrame({
 
     'Soil_Type': [soil_type_encoded],
-
     'Soil_Moisture_%': [soil_moisture],
-
     'Shear_Strength_kPa': [shear_strength],
-
     'Bearing_Capacity_kPa': [bearing_capacity],
-
     'Excavation_Depth_m': [excavation_depth],
-
     'Retaining_Wall_Type': [retaining_wall_encoded],
-
     'Support_System': [support_system_encoded],
-
     'Deformation_mm': [deformation],
-
     'Rainfall_mm_day': [rainfall],
-
     'Temperature_C': [temperature],
-
     'Groundwater_Level_m': [groundwater],
-
     'Seismic_Activity': [seismic_activity],
-
     'Ground_Settlement_mm': [ground_settlement],
-
     'Wall_Displacement_mm': [wall_displacement],
-
     'Pore_Water_Pressure_kPa': [pore_water],
-
     'Strain_Gauge': [strain_gauge]
 
 })
 
-# ==========================================
-# SHOW INPUT DATA
-# ==========================================
+# =====================================================
+# DISPLAY INPUT VALUES
+# =====================================================
 
 st.subheader("Current Input Values")
 
 st.dataframe(input_data)
 
-# ==========================================
-# PREDICT BUTTON
-# ==========================================
+# =====================================================
+# PREDICTION
+# =====================================================
 
 if st.button("Predict Risk Level"):
 
     try:
 
-        # ==========================================
+        # =============================================
         # MODEL PREDICTION
-        # ==========================================
+        # =============================================
 
-        prediction = model.predict(input_data)[0]
+        prediction = model.predict(input_data)
 
-        prediction = int(prediction)
+        prediction = int(prediction[0])
 
-        # ==========================================
-        # DISPLAY RESULT
-        # ==========================================
+        # =============================================
+        # RISK CLASSIFICATION
+        # =============================================
 
         st.subheader("Prediction Result")
 
+        # LOW RISK
         if prediction == 0:
 
             st.success("🟢 LOW RISK")
 
             st.markdown("""
-            ### Construction Status
-            Safe for construction.
+            ### Interpretation
+            Soil condition is safe for construction.
             """)
 
+        # MEDIUM RISK
         elif prediction == 1:
 
             st.warning("🟡 MEDIUM RISK")
 
             st.markdown("""
-            ### Construction Status
-            Moderate precautions required.
+            ### Interpretation
+            Moderate safety precautions required.
             """)
 
-        else:
+        # HIGH RISK
+        elif prediction == 2:
 
             st.error("🔴 HIGH RISK")
 
             st.markdown("""
-            ### Construction Status
-            Unsafe soil conditions detected.
+            ### Interpretation
+            Unsafe soil condition detected.
             """)
 
-        # ==========================================
+        else:
+
+            st.info("Unknown Risk Level")
+
+        # =============================================
         # PROBABILITY CHART
-        # ==========================================
+        # =============================================
 
         try:
 
@@ -267,14 +260,17 @@ if st.button("Predict Risk Level"):
                 prob_df,
                 x="Risk Level",
                 y="Probability",
-                title="Prediction Probability"
+                title="Prediction Probability",
+                text_auto=True
             )
 
             st.plotly_chart(fig, use_container_width=True)
 
-        except:
+        except Exception as prob_error:
 
-            st.info("Probability chart unavailable")
+            st.warning("Probability chart unavailable")
+
+            st.write(prob_error)
 
     except Exception as e:
 
@@ -282,9 +278,9 @@ if st.button("Predict Risk Level"):
 
         st.write(e)
 
-# ==========================================
+# =====================================================
 # FOOTER
-# ==========================================
+# =====================================================
 
 st.markdown("---")
 st.markdown("### Developed using XGBoost + Streamlit")
