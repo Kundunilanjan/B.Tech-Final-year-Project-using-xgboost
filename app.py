@@ -3,9 +3,9 @@ import pandas as pd
 import joblib
 import plotly.express as px
 
-# =========================
+# ==========================================
 # PAGE CONFIG
-# =========================
+# ==========================================
 
 st.set_page_config(
     page_title="Soil Safety Prediction",
@@ -13,25 +13,29 @@ st.set_page_config(
     layout="wide"
 )
 
-# =========================
+# ==========================================
 # LOAD MODEL
-# =========================
+# ==========================================
 
 model = joblib.load("xgboost_model.pkl")
 label_encoders = joblib.load("label_encoders.pkl")
 
-# =========================
+# ==========================================
 # TITLE
-# =========================
+# ==========================================
 
 st.title("🏗️ Soil Safety Prediction System")
-st.markdown("### XGBoost Based Construction Risk Prediction")
+st.markdown("## XGBoost Based Construction Risk Prediction")
 
-# =========================
+# ==========================================
 # SIDEBAR
-# =========================
+# ==========================================
 
 st.sidebar.header("Input Parameters")
+
+# ==========================================
+# INPUTS
+# ==========================================
 
 soil_type = st.sidebar.selectbox(
     "Soil Type",
@@ -137,11 +141,13 @@ strain_gauge = st.sidebar.slider(
     40.0
 )
 
-# =========================
-# ENCODE INPUTS
-# =========================
+# ==========================================
+# ENCODE CATEGORICAL VALUES
+# ==========================================
 
-soil_type_encoded = label_encoders['Soil_Type'].transform([soil_type])[0]
+soil_type_encoded = label_encoders[
+    'Soil_Type'
+].transform([soil_type])[0]
 
 retaining_wall_encoded = label_encoders[
     'Retaining_Wall_Type'
@@ -151,62 +157,136 @@ support_system_encoded = label_encoders[
     'Support_System'
 ].transform([support_system])[0]
 
-# =========================
+# ==========================================
 # CREATE INPUT DATAFRAME
-# =========================
+# ==========================================
 
 input_data = pd.DataFrame({
+
     'Soil_Type': [soil_type_encoded],
+
     'Soil_Moisture_%': [soil_moisture],
+
     'Shear_Strength_kPa': [shear_strength],
+
     'Bearing_Capacity_kPa': [bearing_capacity],
+
     'Excavation_Depth_m': [excavation_depth],
+
     'Retaining_Wall_Type': [retaining_wall_encoded],
+
     'Support_System': [support_system_encoded],
+
     'Deformation_mm': [deformation],
+
     'Rainfall_mm_day': [rainfall],
+
     'Temperature_C': [temperature],
+
     'Groundwater_Level_m': [groundwater],
+
     'Seismic_Activity': [seismic_activity],
+
     'Ground_Settlement_mm': [ground_settlement],
+
     'Wall_Displacement_mm': [wall_displacement],
+
     'Pore_Water_Pressure_kPa': [pore_water],
+
     'Strain_Gauge': [strain_gauge]
+
 })
 
-# =========================
-# PREDICTION
-# =========================
+# ==========================================
+# DISPLAY INPUT DATA
+# ==========================================
+
+st.subheader("Current Input Values")
+
+st.dataframe(input_data)
+
+# ==========================================
+# PREDICTION BUTTON
+# ==========================================
 
 if st.button("Predict Risk Level"):
 
-    prediction = model.predict(input_data)[0]
+    try:
 
-    probabilities = model.predict_proba(input_data)[0]
+        # ==========================================
+        # MAKE PREDICTION
+        # ==========================================
 
-    if prediction == 0:
-        st.success("Prediction: LOW RISK")
+        prediction = model.predict(input_data)[0]
 
-    elif prediction == 1:
-        st.warning("Prediction: MEDIUM RISK")
+        probabilities = model.predict_proba(input_data)[0]
 
-    else:
-        st.error("Prediction: HIGH RISK")
+        # ==========================================
+        # RISK LABELS
+        # ==========================================
 
-    # =========================
-    # PROBABILITY CHART
-    # =========================
+        risk_labels = {
+            0: "LOW RISK",
+            1: "MEDIUM RISK",
+            2: "HIGH RISK"
+        }
 
-    prob_df = pd.DataFrame({
-        'Risk Level': ['Low', 'Medium', 'High'],
-        'Probability': probabilities
-    })
+        predicted_risk = risk_labels[prediction]
 
-    fig = px.bar(
-        prob_df,
-        x='Risk Level',
-        y='Probability',
-        title='Prediction Probability'
-    )
+        # ==========================================
+        # DISPLAY RESULT
+        # ==========================================
 
-    st.plotly_chart(fig, use_container_width=True)
+        st.subheader("Prediction Result")
+
+        if prediction == 0:
+            st.success(f"Prediction: {predicted_risk}")
+
+        elif prediction == 1:
+            st.warning(f"Prediction: {predicted_risk}")
+
+        else:
+            st.error(f"Prediction: {predicted_risk}")
+
+        # ==========================================
+        # PROBABILITY DATAFRAME
+        # ==========================================
+
+        prob_df = pd.DataFrame({
+            "Risk Level": ["Low", "Medium", "High"],
+            "Probability": probabilities
+        })
+
+        # ==========================================
+        # BAR CHART
+        # ==========================================
+
+        fig = px.bar(
+            prob_df,
+            x="Risk Level",
+            y="Probability",
+            title="Prediction Probability"
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # ==========================================
+        # SHOW PROBABILITIES
+        # ==========================================
+
+        st.subheader("Prediction Probabilities")
+
+        st.dataframe(prob_df)
+
+    except Exception as e:
+
+        st.error("Prediction Failed")
+
+        st.exception(e)
+
+# ==========================================
+# FOOTER
+# ==========================================
+
+st.markdown("---")
+st.markdown("### Developed using XGBoost + Streamlit")
